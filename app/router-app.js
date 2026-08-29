@@ -36,9 +36,9 @@ export default function RouterApp() {
   const date = (days) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + days).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const registration = `MOCK/${String(today.getFullYear()).slice(2)}${String(today.getMonth()+1).padStart(2,'0')}-${(text.length * 137 + 20491).toString(36).toUpperCase()}`;
 
-  return <main className="shell">
+  return <main className={`shell step-${screen}`}>
     <header><p className="eyebrow">CITIZEN ROUTING TOOL</p><h1>Find the right public authority.</h1><p className="disclaimer">Independent prototype, not a government service.</p></header>
-    <nav aria-label="Progress">{screens.map((item, index) => <span key={item} className={index === screen ? 'active' : index < screen ? 'done' : ''}><b>{index + 1}</b><i>{item}</i></span>)}</nav>
+    <nav aria-label="Progress"><span className="step-copy">Step {screen + 1} of {screens.length} · <strong>{screens[screen]}</strong></span><span className="progress-track" aria-hidden="true"><i style={{ width: `${((screen + 1) / screens.length) * 100}%` }} /></span></nav>
 
     {screen === 0 && <section><h2>What went wrong?</h2><p className="helper">Plain language is fine. You don’t need to know any department or scheme name.</p><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="For example: My PF claim has been pending since March..." autoFocus />
       <p className="examples-label">Try an example</p><div className="examples">{examples.map((example) => <button className="example" key={example} onClick={() => setText(example)}>{example}</button>)}</div>
