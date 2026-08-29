@@ -1,5 +1,20 @@
-export async function POST() {
-  // Persistence is deliberately not implemented in this prototype.
-  // No filing data, and no applicant details, are stored or transmitted anywhere.
+import { db, ensureTable } from "../../../lib/db";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(request) {
+  const sql = db();
+  if (!sql) return new Response(null, { status: 204 });
+  try {
+    const b = await request.json();
+    await ensureTable(sql);
+    await sql`
+      INSERT INTO filings (ref_id, authority_id, authority_name, confidence, jurisdiction, engine, complaint, draft)
+      VALUES (${b.refId}, ${b.authorityId}, ${b.authorityName}, ${String(b.confidence ?? "")},
+              ${b.jurisdiction}, ${b.engine}, ${b.complaint}, ${b.draft})
+      ON CONFLICT (ref_id) DO NOTHING`;
+  } catch {
+    // Logging must never affect a citizen's simulated filing.
+  }
   return new Response(null, { status: 204 });
 }
