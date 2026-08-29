@@ -1,9 +1,9 @@
-export async function POST(request) {
-  if (!process.env.SHEET_WEBHOOK_URL) return new Response(null, { status: 204 });
+import { saveFiling } from '../../../lib/filings';
 
+export async function POST(request) {
   try {
     const body = await request.json();
-    const filing = {
+    await saveFiling({
       refId: body.refId,
       authorityId: body.authorityId,
       authorityName: body.authorityName,
@@ -12,15 +12,9 @@ export async function POST(request) {
       engine: body.engine,
       complaint: body.complaint,
       draft: body.draft
-    };
-
-    await fetch(process.env.SHEET_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(filing)
     });
   } catch {
-    // Logging must never affect a citizen's simulated filing.
+    // Storage must never affect a citizen's simulated filing.
   }
 
   return new Response(null, { status: 204 });
