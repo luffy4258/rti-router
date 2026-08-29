@@ -4,7 +4,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request) {
   const sql = db();
-  if (!sql) return new Response(null, { status: 204 });
+  if (!sql) {
+    console.error("log: DATABASE_URL missing");
+    return new Response(null, { status: 204 });
+  }
   try {
     const b = await request.json();
     await ensureTable(sql);
@@ -15,8 +18,9 @@ export async function POST(request) {
       VALUES (${b.refId}, ${b.authorityId}, ${b.authorityName}, ${String(b.confidence ?? "")},
               ${b.jurisdiction}, ${b.engine}, ${b.complaint}, ${draftText})
       ON CONFLICT (ref_id) DO NOTHING`;
-  } catch {
-    // Logging must never affect a citizen's simulated filing.
+    console.log("log: inserted", b.refId);
+  } catch (e) {
+    console.error("log insert failed:", e?.message || String(e));
   }
   return new Response(null, { status: 204 });
 }
