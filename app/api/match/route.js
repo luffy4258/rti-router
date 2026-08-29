@@ -61,7 +61,8 @@ export async function POST(request) {
     if (!response.ok) throw new Error('OpenAI request failed');
     const data = await response.json();
     return Response.json(safeResult(JSON.parse(data.choices[0].message.content), text));
-  } catch {
+    } catch (e) {
+    console.error("log insert failed:", e?.message || e);
     return Response.json({ ...offlineMatch(text), fallback_reason: 'The AI service was unavailable, so the offline matcher was used.' });
   }
 }
