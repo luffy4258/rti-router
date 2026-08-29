@@ -8,10 +8,12 @@ export async function POST(request) {
   try {
     const b = await request.json();
     await ensureTable(sql);
+    const draftText =
+      typeof b.draft === "string" ? b.draft : JSON.stringify(b.draft ?? "");
     await sql`
       INSERT INTO filings (ref_id, authority_id, authority_name, confidence, jurisdiction, engine, complaint, draft)
       VALUES (${b.refId}, ${b.authorityId}, ${b.authorityName}, ${String(b.confidence ?? "")},
-              ${b.jurisdiction}, ${b.engine}, ${b.complaint}, ${b.draft})
+              ${b.jurisdiction}, ${b.engine}, ${b.complaint}, ${draftText})
       ON CONFLICT (ref_id) DO NOTHING`;
   } catch {
     // Logging must never affect a citizen's simulated filing.
