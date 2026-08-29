@@ -1,6 +1,6 @@
 import ministries from '../../../data/ministries.json';
 
-const stateTerms = ['municipal', 'municipality', 'garbage', 'street light', 'streetlight', 'land record', 'mutation', 'birth certificate', 'death certificate', 'caste certificate', 'income certificate', 'fir', 'local police', 'state school', 'state electricity', 'electricity board', 'rto', 'property tax'];
+const stateTerms = ['municipal', 'municipality', 'garbage', 'street light', 'streetlight', 'land record', 'mutation', 'birth certificate', 'death certificate', 'caste certificate', 'income certificate', 'fir', 'local police', 'state school', 'state electricity', 'electricity board', 'rto', 'property tax', 'international driving permit', 'international driving licence', 'international driving license', 'driving licence', 'driving license', 'learner licence', 'learner license', 'transport office', 'idp'];
 
 function draftFor(text, authority) {
   const topic = text.replace(/\s+/g, ' ').trim();
@@ -33,7 +33,7 @@ function offlineMatch(text) {
 }
 
 function safeResult(result, text) {
-  if (result.jurisdiction === 'state') return { ...offlineMatch(text), jurisdiction: 'state', note: result.note || 'This appears to be a state or local-government matter.', offline: false };
+  if (result.jurisdiction === 'state') return { ...offlineMatch(text), jurisdiction: 'state', note: result.note || 'This appears to be a state or local-government matter.', authorities: [], offline: false };
   const authorities = (result.authorities || []).filter((item) => ministries.some((ministry) => ministry.id === item.id)).slice(0, 3).map((item) => ({
     id: item.id,
     why: String(item.why || 'This authority appears to handle the matter.').slice(0, 260),
@@ -47,15 +47,20 @@ export async function POST(request) {
   const { text } = await request.json();
   if (!text || typeof text !== 'string' || text.trim().length < 5) return Response.json({ error: 'Please describe the problem in a little more detail.' }, { status: 400 });
   if (!process.env.OPENAI_API_KEY) return Response.json(offlineMatch(text));
-  const system = `You route Indian central RTI applications. Return JSON only with jurisdiction, note, authorities, clarifying_question, subject and requests. Decide jurisdiction first: municipal roads, garbage, street lights, land records/mutations, birth/death/caste/income certificates, local police FIRs, state schools, state electricity boards, RTO and property tax are STATE subjects; return jurisdiction state and a short note. For central matters choose 1–3 catalogue IDs only, ranked. Every authority needs id, why (one plain sentence naming the specific trigger), confidence 0–1. Vague descriptions: top confidence below .55 and ask one clarifying question. Draft a subject under 15 words and 3–5 numbered-style requests for records, dates, file notings, officials or timelines, never why, opinions or hypotheticals. Catalogue: ${JSON.stringify(ministries)}`;
+  const system = `You route Indian central RTI applications. Return JSON only with jurisdiction, note, authorities, clarifying_question, subject and requests. Decide jurisdiction first: municipal roads, garbage, street lights, land records/mutations, birth/death/caste/income certificates, local police FIRs, state schools, state electricity boards, driving licences and international driving permits (issued by state RTOs), vehicle registration and property tax are STATE subjects; return jurisdiction state and a short note. For central matters choose 1–3 catalogue IDs only, ranked. Every authority needs id, why (one plain sentence naming the specific trigger), confidence 0–1. Vague descriptions: top confidence below .55 and ask one clarifying question. Draft a subject under 15 words and 3–5 numbered-style requests for records, dates, file notings, officials or timelines, never why, opinions or hypotheticals. Catalogue: ${JSON.stringify(ministries)}`;
   try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: process.env.OPENAI_MODEL || 'gpt-4.1-mini', instructions: system, input: text, text: { format: { type: 'json_object' } } })
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+        messages: [{ role: 'system', content: system }, { role: 'user', content: text }]
+      })
     });
     if (!response.ok) throw new Error('OpenAI request failed');
     const data = await response.json();
-    return Response.json(safeResult(JSON.parse(data.output_text), text));
+    return Response.json(safeResult(JSON.parse(data.choices[0].message.content), text));
   } catch {
     return Response.json({ ...offlineMatch(text), fallback_reason: 'The AI service was unavailable, so the offline matcher was used.' });
   }
