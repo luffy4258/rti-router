@@ -19,6 +19,7 @@ export default function RouterApp() {
   const [address, setAddress] = useState('');
   const [draft, setDraft] = useState(null);
   const [paid, setPaid] = useState(false);
+  const [chosen, setChosen] = useState(0);
 
   async function analyse() {
     setLoading(true);
@@ -26,17 +27,17 @@ export default function RouterApp() {
       const response = await fetch('/api/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      setResult(data); setDraft(data); setScreen(1);
+      setResult(data); setDraft(data); setChosen(0); setScreen(1);
     } catch (error) { alert(error.message || 'Could not read that problem. Please try again.'); }
     finally { setLoading(false); }
   }
   function next() { setScreen((current) => Math.min(5, current + 1)); }
-  const current = result?.authorities?.[0] && authority(result.authorities[0].id);
+  const current = result?.authorities?.[chosen] && authority(result.authorities[chosen].id);
   const today = new Date();
   const date = (days) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + days).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const registration = `MOCK/${String(today.getFullYear()).slice(2)}${String(today.getMonth()+1).padStart(2,'0')}-${(text.length * 137 + 20491).toString(36).toUpperCase()}`;
   function logFiling() {
-    const match = result?.authorities?.[0];
+    const match = result?.authorities?.[chosen];
     void fetch('/api/log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -63,10 +64,10 @@ export default function RouterApp() {
 
     {screen === 1 && result && <section><h2>Where to send it</h2>{result.offline && <p className="offline">Offline matcher in use — no AI key is configured{result.fallback_reason ? ', or the AI service was unavailable' : ''}.</p>}
       {result.jurisdiction === 'state' ? <><div className="state"><strong>This belongs with your state or local government.</strong><p>{result.note}</p><p>This is the most common reason ordinary filings get rejected by the central portal.</p></div><button className="primary" onClick={() => setScreen(0)}>Describe another problem</button></> : <>
-      {result.authorities.map((match, index) => { const item = authority(match.id); return <article className="authority" key={match.id}><p className="rank">MATCH {index + 1}</p><code>{item.id}</code><h3>{item.name}</h3><p>{match.why}</p><div className="meter" aria-label={`${Math.round(match.confidence * 100)}% confidence`}>{[0,1,2,3,4].map((part) => <span className={match.confidence * 5 > part ? 'filled' : ''} key={part} />)}</div><small>{meterLabel(match.confidence)}</small></article>})}
+      {result.authorities.map((match, index) => { const item = authority(match.id); return <article className={index === chosen ? 'authority selected' : 'authority'} key={match.id}><p className="rank">MATCH {index + 1}{index === chosen ? ' · SELECTED' : ''}</p><code>{item.id}</code><h3>{item.name}</h3><p>{match.why}</p><div className="meter" aria-label={`${Math.round(match.confidence * 100)}% confidence`}>{[0,1,2,3,4].map((part) => <span className={match.confidence * 5 > part ? 'filled' : ''} key={part} />)}</div><small>{meterLabel(match.confidence)}</small><button className={index === chosen ? 'primary' : 'secondary'} onClick={() => setChosen(index)}>{index === chosen ? 'Selected' : 'Choose this authority'}</button></article>})}
       <p className="legal-note">If it is wrongly addressed, Section 6(3) requires a transfer within five days and the citizen must be informed. Choosing wrong costs nothing.</p>
       {result.clarifying_question && <div className="question"><strong>{result.clarifying_question}</strong><button className="secondary" onClick={() => setScreen(0)}>Add detail</button></div>}
-      <button className="primary" onClick={next}>Use this authority</button></>}</section>}
+      <button className="primary" onClick={next}>Continue with {current?.name}</button></>}</section>}
 
     {screen === 2 && draft && <section><h2>Your draft application</h2><p className="helper">These questions ask for records, rather than opinions, because opinion questions can be refused.</p><div className="paper"><p>To<br />The Central Public Information Officer<br />{current?.name || 'Relevant public authority'}</p><label>Subject<input value={draft.subject || ''} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} /></label><p>Under Section 6(1) of the Right to Information Act, 2005, I request the following information:</p><ol>{(draft.requests || []).map((request, index) => <li key={index}><textarea value={request} onChange={(e) => { const requests = [...draft.requests]; requests[index] = e.target.value; setDraft({ ...draft, requests }); }} /></li>)}</ol><p>Background: {text}</p><p>I am enclosing the statutory RTI application fee of ₹10. If this information belongs to another public authority, please transfer this application under Section 6(3) of the Act and inform me.</p><p>Yours faithfully,<br />{name || '[Your name]'}</p></div><button className="primary" onClick={next}>Add your details</button></section>}
 
@@ -74,7 +75,7 @@ export default function RouterApp() {
 
     {screen === 4 && <section><h2>Fee and filing {tag()}</h2><div className="fee"><p><span>Authority</span><strong>{current?.name || 'Public authority'}</strong></p><p><span>Statutory fee</span><strong>₹10</strong></p><p><span>BPL applicants</span><strong>No fee</strong></p><p><span>Reply due</span><strong>Within 30 days</strong></p></div><p className="helper">No money moves. The ₹10 fee is fixed by the RTI Rules.</p><button className="primary" onClick={() => { setPaid(true); logFiling(); next(); }}>Pay ₹10 and file {tag()}</button></section>}
 
-    {screen === 5 && <section><h2>Receipt and status {tag()}</h2><div className="receipt"><p>Registration number</p><code>{registration}</code><p className="offline">This is a simulated filing. Nothing has been sent.</p></div><div className="timeline"><p><b>{date(0)}</b><span>Received {tag()}</span></p><p><b>{date(5)}</b><span>Transfer deadline · §6(3)</span></p><p><b>{date(30)}</b><span>Reply due · §7(1)</span></p><p><b>{date(31)}</b><span>First appeal opens free of cost · §19(1)</span></p><p><b>{date(60)}</b><span>Second appeal to the Information Commission · §19(3)</span></p></div><button className="secondary" onClick={() => { setScreen(0); setText(''); setResult(null); }}>Start another request</button></section>}
+    {screen === 5 && <section><h2>Receipt and status {tag()}</h2><div className="receipt"><p>Registration number</p><code>{registration}</code><p className="offline">This is a simulated filing. Nothing has been sent.</p></div><div className="timeline"><p><b>{date(0)}</b><span>Received {tag()}</span></p><p><b>{date(5)}</b><span>Transfer deadline · §6(3)</span></p><p><b>{date(30)}</b><span>Reply due · §7(1)</span></p><p><b>{date(31)}</b><span>First appeal opens free of cost · §19(1)</span></p><p><b>{date(60)}</b><span>Second appeal to the Information Commission · §19(3)</span></p></div><button className="secondary" onClick={() => { setScreen(0); setText(''); setResult(null); setChosen(0); }}>Start another request</button></section>}
     <footer><strong>What is real:</strong> RTI rights, routing information, fee and deadlines. <strong>What is simulated:</strong> matching, drafting, payment, filing and receipt. <strong>What may be recorded:</strong> the mock reference, routing choice, complaint and draft. <strong>What is not recorded or sent:</strong> your name and reply address; they stay in this browser.</footer>
   </main>;
 }
