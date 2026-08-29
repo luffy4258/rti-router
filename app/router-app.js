@@ -35,10 +35,27 @@ export default function RouterApp() {
   const today = new Date();
   const date = (days) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + days).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const registration = `MOCK/${String(today.getFullYear()).slice(2)}${String(today.getMonth()+1).padStart(2,'0')}-${(text.length * 137 + 20491).toString(36).toUpperCase()}`;
+  function logFiling() {
+    const match = result?.authorities?.[0];
+    void fetch('/api/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        refId: registration,
+        authorityId: current?.id,
+        authorityName: current?.name,
+        confidence: match?.confidence,
+        jurisdiction: result?.jurisdiction,
+        engine: result?.offline ? 'offline-keyword-matcher' : 'openai',
+        complaint: text,
+        draft: { subject: draft?.subject, requests: draft?.requests }
+      })
+    }).catch(() => {});
+  }
 
-  return <main className="shell">
+  return <main className={`shell step-${screen}`}>
     <header><p className="eyebrow">CITIZEN ROUTING TOOL</p><h1>Find the right public authority.</h1><p className="disclaimer">Independent prototype, not a government service.</p></header>
-    <nav aria-label="Progress">{screens.map((item, index) => <span key={item} className={index === screen ? 'active' : index < screen ? 'done' : ''}><b>{index + 1}</b><i>{item}</i></span>)}</nav>
+    <nav aria-label="Progress"><span className="step-copy">Step {screen + 1} of {screens.length} · <strong>{screens[screen]}</strong></span><span className="progress-track" aria-hidden="true"><i style={{ width: `${((screen + 1) / screens.length) * 100}%` }} /></span></nav>
 
     {screen === 0 && <section><h2>What went wrong?</h2><p className="helper">Plain language is fine. You don’t need to know any department or scheme name.</p><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="For example: My PF claim has been pending since March..." autoFocus />
       <p className="examples-label">Try an example</p><div className="examples">{examples.map((example) => <button className="example" key={example} onClick={() => setText(example)}>{example}</button>)}</div>
@@ -53,11 +70,11 @@ export default function RouterApp() {
 
     {screen === 2 && draft && <section><h2>Your draft application</h2><p className="helper">These questions ask for records, rather than opinions, because opinion questions can be refused.</p><div className="paper"><p>To<br />The Central Public Information Officer<br />{current?.name || 'Relevant public authority'}</p><label>Subject<input value={draft.subject || ''} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} /></label><p>Under Section 6(1) of the Right to Information Act, 2005, I request the following information:</p><ol>{(draft.requests || []).map((request, index) => <li key={index}><textarea value={request} onChange={(e) => { const requests = [...draft.requests]; requests[index] = e.target.value; setDraft({ ...draft, requests }); }} /></li>)}</ol><p>Background: {text}</p><p>I am enclosing the statutory RTI application fee of ₹10. If this information belongs to another public authority, please transfer this application under Section 6(3) of the Act and inform me.</p><p>Yours faithfully,<br />{name || '[Your name]'}</p></div><button className="primary" onClick={next}>Add your details</button></section>}
 
-    {screen === 3 && <section><h2>Your details {tag()}</h2><p className="helper">Stores nothing, sends nothing. Never enter a real Aadhaar, PAN or phone number.</p><label>Your name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name for this mock application" /></label><label>Reply address<textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address for this mock application" /></label><button className="primary" onClick={next}>Continue to fee</button></section>}
+    {screen === 3 && <section><h2>Your details {tag()}</h2><p className="helper">The mock reference, routing choice, complaint and draft may be recorded for this prototype. Your name and reply address stay in this browser and are never sent anywhere. Do not enter Aadhaar, PAN or phone numbers.</p><label>Your name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name for this mock application" /></label><label>Reply address<textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address for this mock application" /></label><button className="primary" onClick={next}>Continue to fee</button></section>}
 
-    {screen === 4 && <section><h2>Fee and filing {tag()}</h2><div className="fee"><p><span>Authority</span><strong>{current?.name || 'Public authority'}</strong></p><p><span>Statutory fee</span><strong>₹10</strong></p><p><span>BPL applicants</span><strong>No fee</strong></p><p><span>Reply due</span><strong>Within 30 days</strong></p></div><p className="helper">No money moves. The ₹10 fee is fixed by the RTI Rules.</p><button className="primary" onClick={() => { setPaid(true); next(); }}>Pay ₹10 and file {tag()}</button></section>}
+    {screen === 4 && <section><h2>Fee and filing {tag()}</h2><div className="fee"><p><span>Authority</span><strong>{current?.name || 'Public authority'}</strong></p><p><span>Statutory fee</span><strong>₹10</strong></p><p><span>BPL applicants</span><strong>No fee</strong></p><p><span>Reply due</span><strong>Within 30 days</strong></p></div><p className="helper">No money moves. The ₹10 fee is fixed by the RTI Rules.</p><button className="primary" onClick={() => { setPaid(true); logFiling(); next(); }}>Pay ₹10 and file {tag()}</button></section>}
 
     {screen === 5 && <section><h2>Receipt and status {tag()}</h2><div className="receipt"><p>Registration number</p><code>{registration}</code><p className="offline">This is a simulated filing. Nothing has been sent.</p></div><div className="timeline"><p><b>{date(0)}</b><span>Received {tag()}</span></p><p><b>{date(5)}</b><span>Transfer deadline · §6(3)</span></p><p><b>{date(30)}</b><span>Reply due · §7(1)</span></p><p><b>{date(31)}</b><span>First appeal opens free of cost · §19(1)</span></p><p><b>{date(60)}</b><span>Second appeal to the Information Commission · §19(3)</span></p></div><button className="secondary" onClick={() => { setScreen(0); setText(''); setResult(null); }}>Start another request</button></section>}
-    <footer><strong>What is real:</strong> RTI rights, routing information, fee and deadlines. <strong>What is simulated:</strong> matching, drafting, payment, filing and receipt.</footer>
+    <footer><strong>What is real:</strong> RTI rights, routing information, fee and deadlines. <strong>What is simulated:</strong> matching, drafting, payment, filing and receipt. <strong>What may be recorded:</strong> the mock reference, routing choice, complaint and draft. <strong>What is not recorded or sent:</strong> your name and reply address; they stay in this browser.</footer>
   </main>;
 }
